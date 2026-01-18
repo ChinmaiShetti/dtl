@@ -41,7 +41,11 @@ type ProgressItem = {
   };
 };
 
-export function Dashboard() {
+type DashboardProps = {
+  userId: string;
+};
+
+export function Dashboard({ userId }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,14 +53,14 @@ export function Dashboard() {
 
   useEffect(() => {
     loadProgress();
-  }, []);
+  }, [userId]);
 
   const loadProgress = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/progress?userId=anonymous");
+      const response = await fetch(`/api/progress?userId=${encodeURIComponent(userId || "anonymous")}`);
       
       if (!response.ok) {
         throw new Error("Failed to fetch progress");

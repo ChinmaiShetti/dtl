@@ -53,6 +53,25 @@ Be encouraging but honest. If accuracy is low, focus on growth mindset.`;
 
     const reflection = JSON.parse(content);
 
+    const userIdToUse = userId || "anonymous";
+
+    // Persist reflection so user insights are queryable later.
+    const { error: saveError } = await supabase.from("reflections").insert({
+      user_id: userIdToUse,
+      topic,
+      summary: reflection.summary,
+      strengths: reflection.strengths,
+      improvements: reflection.improvements,
+      next_steps: reflection.nextSteps,
+      encouragement: reflection.encouragement,
+      xp_earned: reflection.xpEarned,
+      badges: reflection.badges,
+    });
+
+    if (saveError) {
+      console.error("Error saving reflection:", saveError);
+    }
+
     return NextResponse.json({ reflection });
   } catch (error) {
     console.error("Error generating reflection:", error);

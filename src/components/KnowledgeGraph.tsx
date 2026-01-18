@@ -10,18 +10,18 @@ interface Node {
   y: number;
   mastery: number;
   connections: string[];
+  conceptsCompleted: number;
+  problemsSolved: number;
+  problemsCorrect: number;
+  xpEarned: number;
+  accuracy: number;
 }
 
 const sampleNodes: Node[] = [
-  { id: "1", label: "Data Structures", x: 400, y: 300, mastery: 85, connections: ["2", "3", "4"] },
-  { id: "2", label: "Arrays", x: 250, y: 180, mastery: 95, connections: ["1", "5"] },
-  { id: "3", label: "Linked Lists", x: 550, y: 180, mastery: 75, connections: ["1", "6"] },
-  { id: "4", label: "Trees", x: 400, y: 450, mastery: 60, connections: ["1", "7", "8"] },
-  { id: "5", label: "Sorting", x: 120, y: 280, mastery: 90, connections: ["2"] },
-  { id: "6", label: "Stacks", x: 680, y: 280, mastery: 70, connections: ["3"] },
-  { id: "7", label: "Binary Trees", x: 280, y: 550, mastery: 45, connections: ["4"] },
-  { id: "8", label: "Graphs", x: 520, y: 550, mastery: 30, connections: ["4", "9"] },
-  { id: "9", label: "DFS/BFS", x: 650, y: 450, mastery: 20, connections: ["8"] },
+  { id: "sample-1", label: "Start Learning", x: 380, y: 320, mastery: 40, connections: ["sample-2"], conceptsCompleted: 1, problemsSolved: 2, problemsCorrect: 1, xpEarned: 30, accuracy: 50 },
+  { id: "sample-2", label: "Pick a Topic", x: 520, y: 260, mastery: 60, connections: ["sample-3"], conceptsCompleted: 2, problemsSolved: 3, problemsCorrect: 2, xpEarned: 60, accuracy: 67 },
+  { id: "sample-3", label: "Solve Problems", x: 280, y: 220, mastery: 30, connections: ["sample-4"], conceptsCompleted: 0, problemsSolved: 1, problemsCorrect: 0, xpEarned: 10, accuracy: 0 },
+  { id: "sample-4", label: "Review Insights", x: 440, y: 460, mastery: 50, connections: [], conceptsCompleted: 1, problemsSolved: 1, problemsCorrect: 1, xpEarned: 40, accuracy: 100 },
 ];
 
 function getMasteryColor(mastery: number): string {
@@ -38,19 +38,47 @@ function getMasteryGlow(mastery: number): string {
 }
 
 interface KnowledgeGraphProps {
+  userId: string;
   onNodeClick?: (node: Node) => void;
 }
 
-export function KnowledgeGraph({ onNodeClick }: KnowledgeGraphProps) {
+export function KnowledgeGraph({ userId, onNodeClick }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [nodes] = useState<Node[]>(sampleNodes);
+  const [nodes, setNodes] = useState<Node[]>(sampleNodes);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
   const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/graph?userId=${encodeURIComponent(userId || "anonymous")}`);
+        if (!res.ok) throw new Error("Failed to load graph");
+        const data = await res.json();
+        if (data.nodes && Array.isArray(data.nodes) && data.nodes.length > 0) {
+          setNodes(data.nodes);
+        } else {
+          setNodes(sampleNodes);
+        }
+      } catch (err) {
+        console.error("Graph load error", err);
+        setError("Could not load your graph. Showing a sample view.");
+        setNodes(sampleNodes);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [userId]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (containerRef.current) {
@@ -65,12 +93,28 @@ export function KnowledgeGraph({ onNodeClick }: KnowledgeGraphProps) {
     onNodeClick?.(node);
   };
 
+  if (loading) {
+    return (
+      <div className="relative w-full h-[600px] rounded-2xl glass overflow-hidden flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="w-10 h-10 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading your knowledge graph…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
       className="relative w-full h-[600px] rounded-2xl glass overflow-hidden"
       onMouseMove={handleMouseMove}
     >
+      {error && (
+        <div className="absolute top-3 right-3 text-xs text-yellow-400 bg-yellow-400/10 px-3 py-1.5 rounded-lg border border-yellow-400/20">
+          {error}
+        </div>
+      )}
       <div className="absolute inset-0 bg-grid-pattern opacity-30" />
       <div className="absolute inset-0 bg-radial-gradient" />
       
@@ -139,6 +183,15 @@ export function KnowledgeGraph({ onNodeClick }: KnowledgeGraphProps) {
               >
                 {node.label}
               </span>
+              <div className="mt-1 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <span style={{ color: getMasteryColor(node.mastery) }}>
+                  {node.mastery}% mastery
+                </span>
+                <span>•</span>
+                <span>{node.conceptsCompleted} concepts</span>
+                <span>•</span>
+                <span>{node.problemsCorrect}/{node.problemsSolved} correct</span>
+              </div>
               <div className="mt-1 h-1 w-full bg-white/10 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
@@ -156,8 +209,15 @@ export function KnowledgeGraph({ onNodeClick }: KnowledgeGraphProps) {
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <span className="text-muted-foreground">Mastery: </span>
-                <span style={{ color: getMasteryColor(node.mastery) }}>{node.mastery}%</span>
+                <div className="flex flex-col gap-1 text-left">
+                  <div>
+                    <span className="text-muted-foreground">Mastery: </span>
+                    <span style={{ color: getMasteryColor(node.mastery) }}>{node.mastery}%</span>
+                  </div>
+                  <div className="text-muted-foreground">Concepts: {node.conceptsCompleted}</div>
+                  <div className="text-muted-foreground">Problems: {node.problemsCorrect}/{node.problemsSolved} ({node.accuracy}%)</div>
+                  <div className="text-muted-foreground">XP: {node.xpEarned}</div>
+                </div>
               </motion.div>
             )}
           </motion.div>
@@ -178,6 +238,32 @@ export function KnowledgeGraph({ onNodeClick }: KnowledgeGraphProps) {
           </div>
         ))}
       </div>
+
+      {selectedNode && (
+        <div className="absolute bottom-4 right-4 w-64 glass rounded-2xl p-4 border border-white/10">
+          {(() => {
+            const node = nodes.find((n) => n.id === selectedNode);
+            if (!node) return null;
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold" style={{ color: getMasteryColor(node.mastery) }}>
+                    {node.label}
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: `${getMasteryColor(node.mastery)}20`, color: getMasteryColor(node.mastery) }}>
+                    {node.mastery}%
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>Concepts completed: {node.conceptsCompleted}</div>
+                  <div>Problems: {node.problemsCorrect}/{node.problemsSolved} ({node.accuracy}%)</div>
+                  <div>XP earned: {node.xpEarned}</div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

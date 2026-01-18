@@ -30,10 +30,11 @@ type Problem = {
 type Props = {
   session: LearningSession;
   updateSession: (u: Partial<LearningSession>) => void;
-  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph") => void;
+  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "relax" | "bored" | "profile") => void;
+  userId: string;
 };
 
-export function PracticeScreen({ session, updateSession, setScreen }: Props) {
+export function PracticeScreen({ session, updateSession, setScreen, userId }: Props) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -113,7 +114,7 @@ export function PracticeScreen({ session, updateSession, setScreen }: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: "anonymous",
+        userId: userId || "anonymous",
         topicId: session.topicId,
         problemsSolved: 1,
         problemsCorrect: isCorrect ? 1 : 0,

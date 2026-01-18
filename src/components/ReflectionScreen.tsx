@@ -30,10 +30,11 @@ type Reflection = {
 
 type Props = {
   session: LearningSession;
-  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph") => void;
+  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "relax" | "bored" | "profile") => void;
+  userId: string;
 };
 
-export function ReflectionScreen({ session, setScreen }: Props) {
+export function ReflectionScreen({ session, setScreen, userId }: Props) {
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function ReflectionScreen({ session, setScreen }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: "anonymous",
+          userId: userId || "anonymous",
           topic: session.topic,
           problemsSolved: session.problemsSolved || 0,
           problemsCorrect: session.problemsCorrect || 0,

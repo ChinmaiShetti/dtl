@@ -29,10 +29,11 @@ type Concept = {
 type Props = {
   session: LearningSession;
   updateSession: (u: Partial<LearningSession>) => void;
-  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph") => void;
+  setScreen: (s: "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "relax" | "bored" | "profile") => void;
+  userId: string;
 };
 
-export function ConceptLearning({ session, updateSession, setScreen }: Props) {
+export function ConceptLearning({ session, updateSession, setScreen, userId }: Props) {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedConcepts, setCompletedConcepts] = useState<Set<string>>(new Set());
@@ -54,7 +55,7 @@ export function ConceptLearning({ session, updateSession, setScreen }: Props) {
       const response = await fetch("/api/concepts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: session.topic }),
+        body: JSON.stringify({ topic: session.topic, userId: userId || "anonymous" }),
       });
 
       if (!response.ok) {
@@ -87,7 +88,7 @@ export function ConceptLearning({ session, updateSession, setScreen }: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: "anonymous",
+        userId: userId || "anonymous",
         topicId: topicId,
         conceptsCompleted: 1,
         xpEarned: 10,

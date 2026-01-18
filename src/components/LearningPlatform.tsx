@@ -29,6 +29,8 @@ import { PracticeScreen } from "./PracticeScreen";
 import { ReflectionScreen } from "./ReflectionScreen";
 import { ProfileScreen } from "./ProfileScreen";
 import { AuthModal } from "./AuthModal";
+import { RelaxScreen } from "./RelaxScreen";
+import { BoredScreen } from "./BoredScreen";
 
 type AuthUser = {
   id: string;
@@ -36,7 +38,7 @@ type AuthUser = {
   displayName?: string;
 };
 
-type Screen = "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "profile";
+type Screen = "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "profile" | "relax" | "bored";
 
 export type LearningSession = {
   topic: string;
@@ -60,12 +62,6 @@ const particlePositions = [
 ];
 
 function AnimatedBackground() {
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       <div className="absolute inset-0 bg-[#0a0a0f]" />
@@ -108,7 +104,7 @@ function AnimatedBackground() {
         transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
       />
       
-      {mounted && particlePositions.map((pos, i) => (
+      {particlePositions.map((pos, i) => (
         <motion.div
           key={i}
           className="absolute w-1 h-1 rounded-full bg-white/20"
@@ -166,6 +162,8 @@ function Navbar({ currentScreen, setScreen, user, onLogout, onOpenAuth }: {
             { id: "practice", label: "Practice" },
             { id: "reflection", label: "Insights" },
             { id: "graph", label: "Graph" },
+            { id: "relax", label: "Relax" },
+            { id: "bored", label: "Bored?" },
           ].map((item) => (
             <button
               key={item.id}
@@ -242,6 +240,8 @@ function Navbar({ currentScreen, setScreen, user, onLogout, onOpenAuth }: {
             { id: "practice", label: "Practice" },
             { id: "reflection", label: "Insights" },
             { id: "graph", label: "Graph" },
+            { id: "relax", label: "Relax" },
+            { id: "bored", label: "Bored?" },
           ].map((item) => (
             <button
               key={item.id}
@@ -682,7 +682,7 @@ function HomePage({ setScreen, session, updateSession, user, onOpenAuth }: {
   );
 }
 
-function GraphScreen() {
+function GraphScreen({ userId }: { userId: string }) {
   return (
     <div className="min-h-screen bg-background pt-24">
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -694,7 +694,7 @@ function GraphScreen() {
           <h1 className="text-3xl font-bold mb-2">Knowledge Graph</h1>
           <p className="text-muted-foreground">Explore your learning journey visually</p>
         </motion.div>
-        <KnowledgeGraph />
+        <KnowledgeGraph userId={userId} />
       </div>
     </div>
   );
@@ -709,12 +709,9 @@ export function LearningPlatform() {
     problemsCorrect: 0,
   });
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [userId, setUserId] = useState<string>("anonymous");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
 
   const checkAuth = async () => {
     try {
@@ -723,17 +720,27 @@ export function LearningPlatform() {
       if (data.user) {
         setUser(data.user);
         localStorage.setItem("neurlearn_user_id", data.user.id);
+        setUserId(data.user.id);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
     }
   };
 
+  useEffect(() => {
+    const storedId = localStorage.getItem("neurlearn_user_id");
+    if (storedId) {
+      setUserId(storedId);
+    }
+    checkAuth();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
       localStorage.removeItem("neurlearn_user_id");
+      setUserId("anonymous");
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -742,6 +749,7 @@ export function LearningPlatform() {
   const handleAuthSuccess = (authUser: AuthUser) => {
     setUser(authUser);
     localStorage.setItem("neurlearn_user_id", authUser.id);
+    setUserId(authUser.id);
   };
 
   const openAuth = (mode: "login" | "signup") => {
@@ -774,12 +782,36 @@ export function LearningPlatform() {
             onOpenAuth={openAuth}
           />
         )}
-        {currentScreen === "dashboard" && <Dashboard />}
-        {currentScreen === "concept" && <ConceptLearning session={session} updateSession={updateSession} setScreen={setScreen} />}
-        {currentScreen === "practice" && <PracticeScreen session={session} updateSession={updateSession} setScreen={setScreen} />}
-        {currentScreen === "reflection" && <ReflectionScreen session={session} setScreen={setScreen} />}
-        {currentScreen === "graph" && <GraphScreen />}
+        {currentScreen === "dashboard" && <Dashboard userId={userId} />}
+        {currentScreen === "concept" && (
+          <ConceptLearning
+            session={session}
+            updateSession={updateSession}
+            setScreen={setScreen}
+            userId={userId}
+          />
+        )}
+        {currentScreen === "practice" && (
+          <PracticeScreen
+            session={session}
+            updateSession={updateSession}
+            setScreen={setScreen}
+            userId={userId}
+          />
+        )}
+        {currentScreen === "reflection" && (
+          <ReflectionScreen
+            session={session}
+            setScreen={setScreen}
+            userId={userId}
+          />
+        )}
+        {currentScreen === "graph" && <GraphScreen userId={userId} />}
         {currentScreen === "profile" && <ProfileScreen onBack={() => setScreen("home")} />}
+        {currentScreen === "relax" && <RelaxScreen setScreen={setScreen} />}
+        {currentScreen === "bored" && (
+          <BoredScreen setScreen={setScreen} sessionTopic={session.topic} />
+        )}
       </div>
 
       <AuthModal
