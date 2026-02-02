@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const FALLBACK = {
   funFacts: [
@@ -48,8 +48,8 @@ Return a JSON object with this exact shape:
 Facts should be STEM-friendly but accessible. Keep everything concise and upbeat.`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.9,
@@ -57,7 +57,7 @@ Facts should be STEM-friendly but accessible. Keep everything concise and upbeat
 
     const content = completion.choices[0].message.content;
     if (!content) {
-      throw new Error("No content returned from OpenAI");
+      throw new Error("No content returned from Groq");
     }
 
     const parsed = JSON.parse(content);
