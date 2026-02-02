@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ concepts: existingConcepts, cached: true });
     }
 
-    const prompt = `You are an expert educator. Generate a comprehensive learning module for the topic: "${topic}".
+    const prompt = `You are an expert educator and learning coach. Create a comprehensive, beginner-friendly learning module for the topic: "${topic}".
 
 Create exactly 5 concept sections that progressively teach this topic from basics to advanced.
 
@@ -41,14 +41,36 @@ Return a JSON object with this exact structure:
   "concepts": [
     {
       "title": "concept title",
-      "content": "detailed explanation (2-3 paragraphs with examples, use markdown formatting)",
+      "content": "detailed explanation (3-5 paragraphs with examples, use markdown formatting)",
       "difficulty": "beginner|intermediate|advanced",
       "order_index": 0
     }
   ]
 }
 
-Make the content engaging, practical, and include real-world examples. Use code examples where relevant (in markdown code blocks).`;
+
+
+Explain the topic naturally, the way you would explain it in a real conversation.
+Focus on intuition, reasoning, and clarity.
+
+Build the explanation step by step:
+- start with why the idea exists or what problem it solves
+- introduce concepts gradually, in simple language
+- use analogies or real-world intuition where they help
+- go into depth where needed — don’t oversimplify
+
+Avoid unnecessary code.
+Only include code if it genuinely makes the idea clearer.
+If words or diagrams can explain it better, use those instead.
+
+Keep the tone calm, friendly, and confidence-building.
+Don’t sound like a textbook or a lecture slide.
+
+Remember one thing the content should be sufficient for a beginner to grasp the core ideas and feel ready to explore further, so keep the content lengthy"
+
+End with a short recap and one thought-provoking question.
+
+Make the content engaging, memorable, and truly helpful for study, while staying within the exact JSON structure.`;
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
