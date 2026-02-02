@@ -27,6 +27,11 @@ type Problem = {
   difficulty: "easy" | "medium" | "hard" | "expert";
 };
 
+type SavedProblem = Problem & {
+  topic: string;
+  savedAt: number;
+};
+
 type Props = {
   session: LearningSession;
   updateSession: (u: Partial<LearningSession>) => void;
@@ -44,6 +49,13 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [tutorLoading, setTutorLoading] = useState(false);
+  const [tutorError, setTutorError] = useState<string | null>(null);
+  const [tutorReply, setTutorReply] = useState<string | null>(null);
+  const [reviewQueue, setReviewQueue] = useState<SavedProblem[]>([]);
+  const [reviewProblem, setReviewProblem] = useState<SavedProblem | null>(null);
+
+  const reviewStorageKey = "neurlearn_review_queue";
 
   useEffect(() => {
     if (session.topic) {
@@ -51,9 +63,27 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
     }
   }, [session.topic, difficulty]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(reviewStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SavedProblem[];
+        setReviewQueue(parsed);
+      }
+    } catch {
+      setReviewQueue([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(reviewStorageKey, JSON.stringify(reviewQueue));
+  }, [reviewQueue]);
+
   const loadProblems = async () => {
     setLoading(true);
     setError(null);
+    setTutorReply(null);
+    setTutorError(null);
     
     try {
       const response = await fetch("/api/problems", {
@@ -129,9 +159,66 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
       setSelectedAnswer(null);
       setShowResult(false);
       setShowHint(false);
+      setTutorReply(null);
+      setTutorError(null);
     } else {
       setScreen("reflection");
     }
+  };
+
+  const askTutor = async (mode: "explain" | "question") => {
+    if (!currentProblem || tutorLoading) return;
+    setTutorLoading(true);
+    setTutorError(null);
+    setTutorReply(null);
+
+    try {
+      const prompt = mode === "explain"
+        ? `Explain the key idea needed to solve this step-by-step, without giving the final answer.\n\nQuestion: ${currentProblem.question}\nOptions: ${currentProblem.options.join(" | ")}`
+        : `I'm stuck on this question. Provide a clear explanation and a helpful hint, then briefly summarize the core concept.\n\nQuestion: ${currentProblem.question}\nOptions: ${currentProblem.options.join(" | ")}`;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: session.topic,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Tutor request failed");
+      }
+
+      const data = await response.json();
+      setTutorReply(data?.message?.content || "No reply returned.");
+    } catch (err) {
+      console.error("Tutor error:", err);
+      setTutorError("Could not reach the tutor. Please try again.");
+    } finally {
+      setTutorLoading(false);
+    }
+  };
+
+  const isSaved = (problem: Problem) =>
+    reviewQueue.some((p) => p.question === problem.question && p.topic === session.topic);
+
+  const toggleSave = (problem: Problem) => {
+    if (!session.topic) return;
+    if (isSaved(problem)) {
+      setReviewQueue((prev) => prev.filter((p) => p.question !== problem.question || p.topic !== session.topic));
+      if (reviewProblem?.question === problem.question) {
+        setReviewProblem(null);
+      }
+      return;
+    }
+
+    const saved: SavedProblem = {
+      ...problem,
+      topic: session.topic,
+      savedAt: Date.now(),
+    };
+    setReviewQueue((prev) => [saved, ...prev].slice(0, 20));
   };
 
   if (!session.topic) {
@@ -278,6 +365,16 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
                     optionStyle = "bg-cyan-400/20 border-cyan-400";
                   }
 
+                  <button
+                    onClick={() => toggleSave(currentProblem)}
+                    className={`px-3 py-2 rounded-xl text-xs border transition-all ${
+                      isSaved(currentProblem)
+                        ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-300"
+                        : "border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10"
+                    }`}
+                  >
+                    {isSaved(currentProblem) ? "Saved" : "Save for review"}
+                  </button>
                   return (
                     <button
                       key={index}
@@ -304,15 +401,33 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
                 })}
               </div>
 
-              {!showResult && !showHint && currentProblem.hint && (
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                {!showResult && !showHint && currentProblem.hint && (
+                  <button
+                    onClick={() => setShowHint(true)}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Lightbulb className="w-4 h-4" />
+                    Need a hint?
+                  </button>
+                )}
                 <button
-                  onClick={() => setShowHint(true)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+                  onClick={() => askTutor("explain")}
+                  disabled={tutorLoading}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Lightbulb className="w-4 h-4" />
-                  Need a hint?
+                  Explain this step
                 </button>
-              )}
+                <button
+                  onClick={() => askTutor("question")}
+                  disabled={tutorLoading}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Ask tutor about this question
+                </button>
+              </div>
 
               {showHint && !showResult && (
                 <motion.div
@@ -323,6 +438,25 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
                   <div className="flex items-start gap-3">
                     <Lightbulb className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-yellow-400/90">{currentProblem.hint}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {tutorError && (
+                <div className="mb-6 rounded-xl border border-red-400/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm">
+                  {tutorError}
+                </div>
+              )}
+
+              {tutorReply && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-400/20 mb-6"
+                >
+                  <div className="flex items-start gap-3">
+                    <Lightbulb className="w-5 h-5 text-cyan-300 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{tutorReply}</p>
                   </div>
                 </motion.div>
               )}
@@ -382,6 +516,61 @@ export function PracticeScreen({ session, updateSession, setScreen, userId }: Pr
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="mt-6 glass rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Review Queue</h3>
+              <p className="text-sm text-muted-foreground">Saved questions you want to revisit</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{reviewQueue.length} saved</span>
+          </div>
+
+          {reviewQueue.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Save difficult questions to build your review list.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reviewQueue.slice(0, 5).map((item) => (
+                <div key={`${item.topic}-${item.savedAt}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-xs text-cyan-300 mb-1">{item.topic}</div>
+                  <div className="text-sm font-medium mb-2">{item.question}</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setReviewProblem(item)}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20"
+                    >
+                      Review now
+                    </button>
+                    <button
+                      onClick={() => toggleSave(item)}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reviewProblem && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-sm">Review</h4>
+                <button
+                  onClick={() => setReviewProblem(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </button>
+              </div>
+              <p className="text-sm mb-2">{reviewProblem.question}</p>
+              <p className="text-xs text-muted-foreground">Hint: {reviewProblem.hint}</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

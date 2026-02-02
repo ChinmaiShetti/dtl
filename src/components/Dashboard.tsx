@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Zap,
   Target,
@@ -77,6 +77,26 @@ export function Dashboard({ userId }: DashboardProps) {
     }
   };
 
+  const dailyPlan = useMemo(() => {
+    const accuracy = stats?.accuracy ?? 0;
+    const streak = stats?.streak ?? 0;
+    const focus = accuracy < 70 ? "accuracy" : "consistency";
+    return {
+      title: "Today’s focus",
+      summary: focus === "accuracy"
+        ? "Slow down, solve fewer, and explain your reasoning."
+        : "Keep momentum with a balanced mini‑session.",
+      steps: [
+        "Complete 1 concept lesson",
+        "Solve 5 practice problems",
+        "Review 1 mistake or saved question",
+      ],
+      streakLine: streak > 0
+        ? `You’re on a ${streak}-day streak — keep it alive today.`
+        : "Start a streak by completing a short session today.",
+    };
+  }, [stats?.accuracy, stats?.streak]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background pt-24 flex items-center justify-center">
@@ -145,6 +165,45 @@ export function Dashboard({ userId }: DashboardProps) {
               <div className="text-xs text-muted-foreground">{stat.label}</div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <motion.div
+            className="glass rounded-2xl p-6"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <Target className="w-5 h-5 text-cyan-400" />
+              {dailyPlan.title}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">{dailyPlan.summary}</p>
+            <ul className="space-y-2 text-sm">
+              {dailyPlan.steps.map((step) => (
+                <li key={step} className="flex items-center gap-2">
+                  <ChevronRight className="w-4 h-4 text-cyan-400" />
+                  {step}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          <motion.div
+            className="glass rounded-2xl p-6"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-violet-400" />
+              Streak reminder
+            </h3>
+            <p className="text-sm text-muted-foreground mb-3">{dailyPlan.streakLine}</p>
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-sm">
+              Try a 15‑minute session: 1 concept + 3 problems.
+            </div>
+          </motion.div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

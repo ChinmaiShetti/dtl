@@ -31,6 +31,7 @@ import { ProfileScreen } from "./ProfileScreen";
 import { AuthModal } from "./AuthModal";
 import { RelaxScreen } from "./RelaxScreen";
 import { BoredScreen } from "./BoredScreen";
+import { ChatScreen } from "./ChatScreen";
 
 type AuthUser = {
   id: string;
@@ -38,7 +39,7 @@ type AuthUser = {
   displayName?: string;
 };
 
-type Screen = "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "profile" | "relax" | "bored";
+type Screen = "home" | "dashboard" | "concept" | "practice" | "reflection" | "graph" | "profile" | "relax" | "bored" | "chat";
 
 export type LearningSession = {
   topic: string;
@@ -162,6 +163,7 @@ function Navbar({ currentScreen, setScreen, user, onLogout, onOpenAuth }: {
             { id: "practice", label: "Practice" },
             { id: "reflection", label: "Insights" },
             { id: "graph", label: "Graph" },
+            { id: "chat", label: "Doubt Chat" },
             { id: "relax", label: "Relax" },
             { id: "bored", label: "Bored?" },
           ].map((item) => (
@@ -240,6 +242,7 @@ function Navbar({ currentScreen, setScreen, user, onLogout, onOpenAuth }: {
             { id: "practice", label: "Practice" },
             { id: "reflection", label: "Insights" },
             { id: "graph", label: "Graph" },
+            { id: "chat", label: "Doubt Chat" },
             { id: "relax", label: "Relax" },
             { id: "bored", label: "Bored?" },
           ].map((item) => (
@@ -807,6 +810,9 @@ export function LearningPlatform() {
           />
         )}
         {currentScreen === "graph" && <GraphScreen userId={userId} />}
+        {currentScreen === "chat" && (
+          <ChatScreen setScreen={setScreen} topic={session.topic} />
+        )}
         {currentScreen === "profile" && <ProfileScreen onBack={() => setScreen("home")} />}
         {currentScreen === "relax" && <RelaxScreen setScreen={setScreen} />}
         {currentScreen === "bored" && (
